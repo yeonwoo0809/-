@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soft & Minimal Planner</title>
+  <style>
+    /* 부드러운 미니멀리즘 테마 */
+    :root {
+      --bg-color: #f7f8fa;
+      --card-bg: #ffffff;
+      --text-main: #333333;
+      --text-muted: #888888;
+      --border-color: #eaeaea;
+      --accent-color: #000000;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; padding: 20px 10px; }
+    button { cursor: pointer; transition: all 0.2s ease; border: none; background: transparent; outline: none; }
+    
+    .container { max-width: 600px; margin: 0 auto; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding: 0 10px; }
+    .header-bar h1 { font-size: 24px; font-weight: 600; }
+    .btn-nav { background: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 12px; font-weight: 500; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+    .btn-nav:hover { background: var(--accent-color); color: #fff; }
+
+    /* 캘린더 뷰 */
+    #calendar-view { display: block; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .day-header { text-align: center; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 10px; }
+    
+    .weekly-summary { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); text-align: right; padding: 6px 12px; background: rgba(0,0,0,0.03); border-radius: 8px; margin-top: 10px; margin-bottom: 4px; }
+    
+    .calendar-cell { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; min-height: 85px; padding: 8px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s, box-shadow 0.2s; }
+    .calendar-cell:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .empty-cell { background: transparent; border: none; cursor: default; box-shadow: none; }
+    .empty-cell:hover { transform: none; box-shadow: none; }
+    
+    .date-num { font-size: 15px; font-weight: 600; }
+    .day-expense { font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 5px; word-break: keep-all; }
+    .has-plan-dot { width: 6px; height: 6px; background-color: var(--accent-color); border-radius: 50%; margin-top: 4px; }
+
+    /* 상세 (Daily) 뷰 */
+    #daily-view { display: none; }
+    
+    /* 아코디언 카드 (섹션) */
+    .card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; border: 1px solid #f2f2f2; transition: all 0.3s ease; }
+    .card-header { padding: 22px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; user-select: none; }
+    .card-header:hover { background-color: #fafafa; }
+    .chevron { transition: transform 0.3s ease; font-size: 14px; color: var(--text-muted); }
+    .card.active .chevron { transform: rotate(180deg); }
+    
+    .card-content { padding: 0 24px; max-height: 0; opacity: 0; overflow: hidden; transition: all 0.3s ease; }
+    .card.active .card-content { padding: 0 24px 24px 24px; max-height: 2000px; opacity: 1; }
+
+    /* 줄(Line) 형태의 입력 필드 */
+    .line-group { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+    .line-input { flex: 1; border: none; border-bottom: 1px solid var(--border-color); padding: 10px 4px; font-size: 15px; background: transparent; transition: border-color 0.2s; outline: none; }
+    .line-input:focus { border-bottom: 1px solid var(--accent-color); }
+    
+    .time-input { border: none; background: transparent; font-size: 13px; color: var(--text-muted); outline: none; border-bottom: 1px solid var(--border-color); padding: 10px 4px; cursor: pointer; }
+    .time-input:focus { border-bottom: 1px solid var(--accent-color); color: var(--text-main); }
+
+    .amount-input { width: 100px; text-align: right; }
+
+    /* 회고 텍스트 에어리어 */
+    .reflection-area { width: 100%; border: none; border-bottom: 1px solid var(--border-color); background: transparent; resize: none; font-size: 15px; padding: 10px 4px; outline: none; line-height: 1.6; min-height: 120px; transition: border-color 0.2s; }
+    .reflection-area:focus { border-bottom: 1px solid var(--accent-color); }
+
+    .total-display { text-align: right; font-size: 16px; font-weight: 600; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
+
+    @media (max-width: 480px) {
+      .calendar-cell { min-height: 75px; padding: 5px; }
+      .date-num { font-size: 13px; }
+      .day-expense { font-size: 10px; }
+      .line-group { flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+      .time-input { flex: 1; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <!-- 캘린더 뷰 -->
+  <div id="calendar-view">
+    <div class="header-bar">
+      <button class="btn-nav" onclick="changeMonth(-1)">이전</button>
+      <h1 id="month-year-display"></h1>
+      <button class="btn-nav" onclick="changeMonth(1)">다음</button>
+    </div>
+    
+    <div class="calendar-grid">
+      <div class="day-header">일</div><div class="day-header">월</div><div class="day-header">화</div>
+      <div class="day-header">수</div><div class="day-header">목</div><div class="day-header">금</div><div class="day-header">토</div>
+    </div>
+    
+    <div class="calendar-grid" id="calendar-body">
+      <!-- JS가 캘린더와 주간 요약을 주입합니다 -->
+    </div>
+  </div>
+
+  <!-- 상세 (Daily) 뷰 -->
+  <div id="daily-view">
+    <div class="header-bar">
+      <h1 id="selected-date-display"></h1>
+      <button class="btn-nav" onclick="showCalendar()">돌아가기</button>
+    </div>
+
+    <!-- 계획 카드 -->
+    <div class="card" id="card-plan">
+      <div class="card-header" onclick="toggleCard('card-plan')">
+        <span>✏️ 오늘 계획</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="card-content" id="plan-list">
+        <!-- JS가 줄(Line) 형태의 인풋을 주입합니다 -->
+      </div>
+    </div>
+
+    <!-- 소비 카드 -->
+    <div class="card" id="card-expense">
+      <div class="card-header" onclick="toggleCard('card-expense')">
+        <span>💸 소비 내역</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="card-content">
+        <div id="expense-list">
+          <!-- JS가 소비 인풋을 주입합니다 -->
+        </div>
+        <div class="total-display" id="daily-total-expense">총 지출: 0원</div>
+      </div>
+    </div>
+
+    <!-- 회고 카드 -->
+    <div class="card" id="card-reflection">
+      <div class="card-header" onclick="toggleCard('card-reflection')">
+        <span>🌙 하루 회고</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="card-content">
+        <textarea class="reflection-area" id="reflection-text" placeholder="오늘 하루는 어땠나요? 자유롭게 기록해보세요." onchange="saveReflection()"></textarea>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let appData = JSON.parse(localStorage.getItem('softPlannerData')) || {};
+  let currentDate = new Date();
+  let selectedDateStr = "";
+
+  function init() {
+    requestNotificationPermission();
+    renderCalendar();
+    setInterval(checkNotifications, 30000); 
+  }
+
+  function saveData() {
+    localStorage.setItem('softPlannerData', JSON.stringify(appData));
+    // 캘린더 화면일 때 데이터 변경시 업데이트
+    if (document.getElementById('calendar-view').style.display !== 'none') {
+      renderCalendar();
+    }
+  }
+
+  // --- 알림 ---
+  function requestNotificationPermission() {
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  }
+
+  function checkNotifications() {
+    if (Notification.permission !== "granted") return;
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+
+    if (!appData[todayStr] || !appData[todayStr].plans) return;
+
+    appData[todayStr].plans.forEach(plan => {
+      if (plan.title && plan.deadline && !plan.notified) {
+        const [dHours, dMinutes] = plan.deadline.split(':').map(Number);
+        const deadlineInMinutes = dHours * 60 + dMinutes;
+        
+        // 정확히 60분 전
+        if (deadlineInMinutes - currentTimeInMinutes === 60) {
+          new Notification("마감 1시간 전", { body: `'${plan.title}' 마감 시간이 1시간 남았습니다.` });
+          plan.notified = true; 
+          saveData();
+        }
+      }
+    });
+  }
+
+  // --- 캘린더 및 주간 지출 렌더링 ---
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    document.getElementById('month-year-display').innerText = `${year}년 ${month + 1}월`;
+    
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // 주 단위로 날짜 쪼개기
+    let weeks = [];
+    let currentWeek = Array(firstDay).fill(null); 
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      currentWeek.push(i);
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+    if (currentWeek.length > 0) {
+      while (currentWeek.length < 7) currentWeek.push(null);
+      weeks.push(currentWeek);
+    }
+
+    const grid = document.getElementById('calendar-body');
+    grid.innerHTML = '';
+
+    // 주 단위 렌더링
+    weeks.forEach(week => {
+      // 1. 해당 주의 총 지출 계산
+      let weeklyTotal = 0;
+      week.forEach(day => {
+        if (day) {
+          const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          if (appData[dStr] && appData[dStr].expenses) {
+            weeklyTotal += appData[dStr].expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+          }
+        }
+      });
+
+      // 2. 주간 요약 줄 추가 (지출이 있을 때만 표시하려면 조건문 추가 가능, 여기선 항상 표시)
+      const weekSummary = document.createElement('div');
+      weekSummary.className = 'weekly-summary';
+      weekSummary.innerText = `주간 총 지출: ${weeklyTotal.toLocaleString()}원`;
+      grid.appendChild(weekSummary);
+
+      // 3. 일자별 셀 렌더링
+      week.forEach(day => {
+        const cell = document.createElement('div');
+        if (!day) {
+          cell.className = 'calendar-cell empty-cell';
+        } else {
+          const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          cell.className = 'calendar-cell';
+          cell.onclick = () => openDailyView(dStr);
+          
+          let html = `<div class="date-num">${day}</div><div>`;
+          
+          // 데이터 유무 체크
+          if (appData[dStr]) {
+            if (appData[dStr].plans && appData[dStr].plans.some(p => p.title)) {
+              html += `<div class="has-plan-dot"></div>`;
+            }
+            // 일일 총 지출 표시
+            if (appData[dStr].expenses) {
+              const dailyTotal = appData[dStr].expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+              if (dailyTotal > 0) {
+                html += `<div class="day-expense">${(dailyTotal / 10000).toFixed(1)}만원</div>`;
+              }
+            }
+          }
+          html += `</div>`;
+          cell.innerHTML = html;
+        }
+        grid.appendChild(cell);
+      });
+    });
+  }
+
+  function changeMonth(step) {
+    currentDate.setMonth(currentDate.getMonth() + step);
+    renderCalendar();
+  }
+
+  // --- 화면 전환 및 아코디언 로직 ---
+  function showCalendar() {
+    document.getElementById('calendar-view').style.display = 'block';
+    document.getElementById('daily-view').style.display = 'none';
+    renderCalendar(); 
+  }
+
+  function openDailyView(dateStr) {
+    selectedDateStr = dateStr;
+    document.getElementById('calendar-view').style.display = 'none';
+    document.getElementById('daily-view').style.display = 'block';
+    
+    const [y, m, d] = dateStr.split('-');
+    document.getElementById('selected-date-display').innerText = `${y}년 ${m}월 ${d}일`;
+    
+    if (!appData[selectedDateStr]) {
+      appData[selectedDateStr] = { plans: [], expenses: [], reflection: "" };
+    }
+    
+    renderDailyData();
+
+    // 열릴 때 기본적으로 '계획' 카드는 펼쳐두기
+    document.getElementById('card-plan').classList.add('active');
+    document.getElementById('card-expense').classList.remove('active');
+    document.getElementById('card-reflection').classList.remove('active');
+  }
+
+  function toggleCard(cardId) {
+    document.getElementById(cardId).classList.toggle('active');
+  }
+
+  // --- Daily Data 렌더링 (노트 줄 방식) ---
+  function renderDailyData() {
+    renderPlans();
+    renderExpenses();
+    document.getElementById('reflection-text').value = appData[selectedDateStr].reflection || "";
+  }
+
+  // 계획(Plan) 렌더링
+  function renderPlans() {
+    const list = document.getElementById('plan-list');
+    list.innerHTML = '';
+    const plans = appData[selectedDateStr].plans;
+    
+    // 비어있는 항목(title이 없는 항목) 정리 후 저장
+    const validPlans = plans.filter(p => p.title.trim() !== '' || p.deadline !== '');
+    if(plans.length !== validPlans.length) {
+      appData[selectedDateStr].plans = validPlans;
+      saveData();
+    }
+
+    // 기존 항목 렌더링
+    validPlans.forEach((plan, index) => {
+      list.appendChild(createPlanRow(plan, index));
+    });
+    
+    // 항상 마지막에 새 항목을 입력할 수 있는 빈 줄 제공
+    list.appendChild(createPlanRow({ title: '', deadline: '' }, validPlans.length));
+  }
+
+  function createPlanRow(plan, index) {
+    const div = document.createElement('div');
+    div.className = 'line-group';
+    div.innerHTML = `
+      <input type="text" class="line-input" placeholder="계획을 입력하세요..." value="${plan.title || ''}" onchange="updatePlan(${index}, 'title', this.value)">
+      <input type="time" class="time-input" value="${plan.deadline || ''}" onchange="updatePlan(${index}, 'deadline', this.value)" title="마감 시간">
+    `;
+    return div;
+  }
+
+  function updatePlan(index, field, value) {
+    if (!appData[selectedDateStr].plans[index]) {
+      appData[selectedDateStr].plans[index] = { title: '', deadline: '', notified: false };
+    }
+    appData[selectedDateStr].plans[index][field] = value;
+    
+    // 수정 시 알림 초기화
+    if(field === 'deadline') appData[selectedDateStr].plans[index].notified = false;
+    
+    saveData();
+    renderPlans(); // 다시 그려서 빈 줄 추가/삭제 관리
+  }
+
+  // 소비(Expense) 렌더링
+  function renderExpenses() {
+    const list = document.getElementById('expense-list');
+    list.innerHTML = '';
+    const expenses = appData[selectedDateStr].expenses;
+    
+    const validExp = expenses.filter(e => e.item.trim() !== '' || e.amount !== '');
+    if(expenses.length !== validExp.length) {
+      appData[selectedDateStr].expenses = validExp;
+      saveData();
+    }
+
+    let dailyTotal = 0;
+    validExp.forEach((exp, index) => {
+      dailyTotal += Number(exp.amount) || 0;
+      list.appendChild(createExpenseRow(exp, index));
+    });
+    
+    list.appendChild(createExpenseRow({ item: '', amount: '' }, validExp.length));
+    document.getElementById('daily-total-expense').innerText = `총 지출: ${dailyTotal.toLocaleString()}원`;
+  }
+
+  function createExpenseRow(exp, index) {
+    const div = document.createElement('div');
+    div.className = 'line-group';
+    div.innerHTML = `
+      <input type="text" class="line-input" placeholder="어디에 사용했나요?" value="${exp.item || ''}" onchange="updateExpense(${index}, 'item', this.value)">
+      <input type="number" class="line-input amount-input" placeholder="금액" value="${exp.amount || ''}" onchange="updateExpense(${index}, 'amount', this.value)">
+      <span style="color:var(--text-muted); font-size:14px;">원</span>
+    `;
+    return div;
+  }
+
+  function updateExpense(index, field, value) {
+    if (!appData[selectedDateStr].expenses[index]) {
+      appData[selectedDateStr].expenses[index] = { item: '', amount: '' };
+    }
+    appData[selectedDateStr].expenses[index][field] = value;
+    saveData();
+    renderExpenses();
+  }
+
+  // 회고 저장
+  function saveReflection() {
+    appData[selectedDateStr].reflection = document.getElementById('reflection-text').value;
+    saveData();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+</script>
+
+</body>
+</html>
